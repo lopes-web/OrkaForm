@@ -196,7 +196,6 @@ function LoginPage({ session }: { session: Session | null }) {
         <img className="login-logo" src="/logo/logo-orka.svg" alt="OrkaForm" />
         <div>
           <span className="eyebrow">Administrador</span>
-          <h1>Entre para criar e gerenciar formulários.</h1>
         </div>
         <form onSubmit={handleSubmit} className="login-form">
           <label>

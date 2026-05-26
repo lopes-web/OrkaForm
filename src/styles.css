@@ -64,7 +64,7 @@ label {
   gap: 8px;
   color: #a8a8a8;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -92,7 +92,7 @@ label {
   color: #111111;
   min-height: 48px;
   padding: 0 18px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .primary-button.compact {
@@ -114,7 +114,7 @@ label {
   color: #ffffff;
   min-height: 42px;
   padding: 0 14px;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .icon-button,
@@ -132,7 +132,7 @@ label {
 .eyebrow {
   color: var(--accent);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: 0.16em;
   text-transform: uppercase;
 }
@@ -194,6 +194,7 @@ label {
   font-size: clamp(34px, 6vw, 72px);
   line-height: 0.96;
   letter-spacing: 0;
+  font-weight: 700;
 }
 
 .login-panel h1 {
@@ -212,7 +213,7 @@ label {
 .public-error {
   margin: 0;
   color: #ff8a78;
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .admin-shell {
@@ -266,7 +267,7 @@ label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .form-list-item small {
@@ -348,7 +349,7 @@ label {
   background: transparent;
   color: #a6a6a6;
   padding: 10px 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .tabs button.active {
@@ -437,7 +438,7 @@ label {
 
 .question-card-header span {
   color: var(--accent);
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .question-card-header select {
@@ -476,7 +477,7 @@ label {
   border-radius: 999px;
   background: rgba(223, 166, 83, 0.18);
   color: #ff9b8c;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .score-input {
@@ -520,7 +521,7 @@ label {
 
 .phone-content span {
   color: rgba(255, 255, 255, 0.72);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .phone-content h2 {
@@ -538,7 +539,7 @@ label {
   border-radius: 16px;
   color: #ffffff;
   min-height: 52px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .responses-panel {
@@ -567,7 +568,7 @@ label {
 .response-card dt {
   color: #9a9a9a;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 600;
   text-transform: uppercase;
 }
 
@@ -642,7 +643,7 @@ label {
 
 .progress-label {
   color: rgba(255, 255, 255, 0.58);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .public-input {
@@ -655,7 +656,7 @@ label {
   color: currentColor;
   padding: 10px 0;
   font-size: clamp(24px, 4vw, 42px);
-  font-weight: 800;
+  font-weight: 700;
 }
 
 textarea.public-input {
@@ -675,7 +676,7 @@ textarea.public-input {
   color: currentColor;
   padding: 18px 20px;
   text-align: left;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .choice-list button.selected {
