@@ -1,11 +1,10 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { App } from './App';
+import { OrkaApp } from './OrkaApp';
 import './styles.css';
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <OrkaApp />
   </React.StrictMode>,
 );
-

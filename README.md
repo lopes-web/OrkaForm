@@ -6,7 +6,7 @@ Produto independente para criar formulários, publicar links e coletar respostas
 
 - `/login` - login do administrador.
 - `/` - painel de administração.
-- `/f/:slug` - formulário público publicado.
+- `/form/:id` - formulário público publicado, no mesmo padrão do CRM.
 
 ## Configuração
 
@@ -17,7 +17,7 @@ VITE_SUPABASE_URL=https://lwnqrzyfmepgwrqjxhms.supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_7OyXUOCYJdRQKBdX4c6AUA_4pJj5-0G
 ```
 
-O banco já usa as tabelas `orka_forms`, `orka_form_questions` e `orka_form_responses`. A migração em `supabase/migrations/20260526184349_add_orka_form_rls_policies.sql` publica as policies de RLS para o app.
+O banco usa as tabelas `orka_forms`, `orka_form_questions` e `orka_form_responses`. As migrations em `supabase/migrations/` criam o schema, aplicam RLS e configuram o bucket público `briefing-assets` usado pelo builder original do CRM.
 
 ## Comandos
 
