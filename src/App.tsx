@@ -182,7 +182,7 @@ function LoginPage({ session }: { session: Session | null }) {
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (signInError) {
-      setError('E-mail ou senha inválidos.');
+      setError(signInError.message || 'E-mail ou senha inválidos.');
       setLoading(false);
       return;
     }
