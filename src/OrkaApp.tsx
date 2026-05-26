@@ -12,6 +12,10 @@ function parseRoute(): Route {
   const publicMatch = path.match(/^\/(?:form|f)\/([^/]+)/);
   if (publicMatch) return { kind: 'public', id: decodeURIComponent(publicMatch[1]) };
   if (path === '/login') return { kind: 'login' };
+  if (path !== '/' && path !== '/admin') {
+    const slugMatch = path.match(/^\/([^/]+)\/?$/);
+    if (slugMatch) return { kind: 'public', id: decodeURIComponent(slugMatch[1]) };
+  }
   return { kind: 'admin' };
 }
 
@@ -155,8 +159,8 @@ function AdminShell({ session }: { session: Session }) {
   }
 
   return (
-    <main className="min-h-screen bg-[#f8f9fa] dark:bg-[#0a0a0a]">
-      <header className="h-14 px-5 border-b border-gray-200 dark:border-white/5 bg-white dark:bg-[#111] flex items-center justify-between">
+    <main className="dark min-h-screen bg-[#0a0a0a] text-white">
+      <header className="h-14 px-5 border-b border-white/5 bg-[#111] flex items-center justify-between">
         <img src="/logo/logo-orka.svg" alt="OrkaForm" className="h-8 w-auto" />
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500 hidden sm:inline">{session.user.email}</span>
@@ -176,4 +180,3 @@ function AdminShell({ session }: { session: Session }) {
     </main>
   );
 }
-

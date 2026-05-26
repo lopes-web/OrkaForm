@@ -90,6 +90,7 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                 options: (q.options || []).map((option: any) => typeof option === 'string' ? option : option.label).filter(Boolean),
                 isRequired: q.required,
                 orderIndex: q.position,
+                settings: q.settings || {},
             }));
 
             setResponses(mapped);
@@ -219,7 +220,9 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                                 </div>
                                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full">
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span className="text-xs font-bold">{String(selectedResponse.status) === 'completed' ? 'Concluída' : 'Pendente'}</span>
+                                    <span className="text-xs font-bold">
+                                        {String(selectedResponse.status) === 'disqualified' ? 'Não qualificada' : String(selectedResponse.status) === 'completed' ? 'Concluída' : 'Pendente'}
+                                    </span>
                                 </div>
                             </div>
 

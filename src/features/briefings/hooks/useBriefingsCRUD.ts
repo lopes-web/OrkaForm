@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/shared/lib/supabase';
 import { Briefing, BriefingQuestion, BriefingStatus, QuestionType } from '@/shared/types';
+import { normalizeSlug } from '../lib/formUrls';
 
 const THEME_COLOR = '#DFA653';
 
@@ -36,6 +37,7 @@ const mapQuestionRow = (row: any): BriefingQuestion => ({
   options: (row.options || []).map((option: any) => (typeof option === 'string' ? option : option.label)).filter(Boolean),
   isRequired: Boolean(row.required),
   orderIndex: row.position,
+  settings: row.settings || {},
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -44,6 +46,7 @@ const mapBriefingRow = (row: any, questions: BriefingQuestion[] = []): Briefing 
   const theme = row.theme || {};
   return {
     id: row.id,
+    slug: row.slug,
     teamId: 'orka',
     userId: 'admin',
     title: row.name,
@@ -77,21 +80,36 @@ const questionRows = (formId: string, questions: Omit<BriefingQuestion, 'id' | '
     description: q.description || '',
     required: Boolean(q.isRequired),
     options: (q.options || []).map((label, optionIndex) => ({ key: String.fromCharCode(65 + optionIndex), label, score: 0 })),
-    settings: {},
+    settings: q.settings || {},
     position: q.orderIndex || idx + 1,
   }));
 
-const formPayload = (briefing: Partial<Briefing>) => {
+async function getAvailableSlug(baseValue: string, currentId?: string): Promise<string> {
+  const base = normalizeSlug(baseValue);
+  let candidate = base;
+  let suffix = 2;
+
+  while (true) {
+    let query = supabase.from('orka_forms').select('id').eq('slug', candidate).limit(1);
+    if (currentId) query = query.neq('id', currentId);
+
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error checking slug:', error);
+      return candidate;
+    }
+    if (!data || data.length === 0) return candidate;
+
+    candidate = `${base}-${suffix}`;
+    suffix += 1;
+  }
+}
+
+const formPayload = (briefing: Partial<Briefing>, slug: string) => {
   const endScreen: Partial<NonNullable<Briefing['endScreen']>> = briefing.endScreen || {};
   return {
     name: briefing.title || 'Novo Formulário',
-    slug: `${(briefing.title || 'novo-formulario')
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)+/g, '')
-      .slice(0, 64)}-${Date.now().toString(36)}`,
+    slug,
     status: toDbStatus(briefing.status),
     welcome_title: briefing.title || 'Novo Formulário',
     welcome_description: briefing.description || '',
@@ -118,6 +136,7 @@ const formUpdatePayload = (updates: Partial<Briefing>) => {
     payload.welcome_title = updates.title;
   }
   if (updates.description !== undefined) payload.welcome_description = updates.description;
+  if (updates.slug !== undefined) payload.slug = normalizeSlug(updates.slug);
   if (updates.status !== undefined) payload.status = toDbStatus(updates.status);
   if (
     updates.themeColor !== undefined ||
@@ -206,9 +225,10 @@ export const useBriefingsCRUD = (currentTeamId?: string, currentUserId?: string)
     briefing: Omit<Briefing, 'id' | 'createdAt' | 'updatedAt' | 'questions'>,
     questions: Omit<BriefingQuestion, 'id' | 'briefingId' | 'createdAt' | 'updatedAt'>[]
   ) => {
+    const slug = await getAvailableSlug(briefing.slug || briefing.title || 'novo-formulario');
     const { data: form, error } = await supabase
       .from('orka_forms')
-      .insert(formPayload(briefing))
+      .insert(formPayload(briefing, slug))
       .select('*')
       .single();
 
@@ -239,6 +259,7 @@ export const useBriefingsCRUD = (currentTeamId?: string, currentUserId?: string)
     newQuestions?: Omit<BriefingQuestion, 'id' | 'briefingId' | 'createdAt' | 'updatedAt'>[]
   ) => {
     const payload = formUpdatePayload(updates);
+    if (payload.slug) payload.slug = await getAvailableSlug(payload.slug, id);
     if (Object.keys(payload).length > 0) {
       const { error } = await supabase.from('orka_forms').update(payload).eq('id', id);
       if (error) {

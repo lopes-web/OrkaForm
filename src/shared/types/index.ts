@@ -1,6 +1,6 @@
 export type BriefingStatus = 'draft' | 'active' | 'archived';
 export type QuestionType = 'short_text' | 'long_text' | 'single_choice' | 'multiple_choice' | 'email' | 'phone' | 'date';
-export type ResponseStatus = 'pending' | 'reviewed' | 'completed' | 'new';
+export type ResponseStatus = 'pending' | 'reviewed' | 'completed' | 'new' | 'disqualified';
 
 export interface BriefingQuestion {
   id: string;
@@ -11,6 +11,7 @@ export interface BriefingQuestion {
   options: string[];
   isRequired: boolean;
   orderIndex: number;
+  settings?: Record<string, unknown>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,6 +27,7 @@ export interface EndScreen {
 
 export interface Briefing {
   id: string;
+  slug?: string;
   teamId: string;
   userId: string;
   title: string;
@@ -52,4 +54,3 @@ export interface BriefingResponse {
   status: ResponseStatus;
   submittedAt: string;
 }
-

@@ -5,6 +5,7 @@ import LoadingScreen from '@/shared/components/LoadingScreen';
 import BriefingBuilder from './BriefingBuilder';
 import BriefingResponses from './BriefingResponses';
 import { Briefing, BriefingQuestion } from '@/shared/types';
+import { publicFormUrl } from '../lib/formUrls';
 
 interface BriefingsPanelProps {
     currentTeamId?: string;
@@ -193,12 +194,11 @@ const BriefingsPanel: React.FC<BriefingsPanelProps> = ({ currentTeamId, currentU
     }, []);
 
     const handleCopyLink = useCallback((briefing: Briefing) => {
-        const url = `${window.location.origin}/form/${briefing.id}`;
-        navigator.clipboard.writeText(url);
+        navigator.clipboard.writeText(publicFormUrl(briefing));
     }, []);
 
     const handleOpenExternal = useCallback((briefing: Briefing) => {
-        window.open(`${window.location.origin}/form/${briefing.id}`, '_blank');
+        window.open(publicFormUrl(briefing), '_blank');
     }, []);
 
     const handleDeleteBriefing = useCallback((briefing: Briefing) => {

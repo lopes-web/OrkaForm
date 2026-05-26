@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import BriefingResponses from './BriefingResponses';
 import CountryCodePicker, { DEFAULT_COUNTRY, Country } from '@/components/CountryCodePicker';
+import { normalizeSlug, publicFormUrl } from '../lib/formUrls';
 
 // ─── Utilities ─────────────────────────────────────────────────────────────────
 function isColorDark(hex: string): boolean {
@@ -268,6 +269,7 @@ interface BriefingBuilderProps {
 const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSave, onCancel }) => {
     // Core state
     const [title, setTitle] = useState(initialBriefing?.title || 'Novo Formulário');
+    const [slug, setSlug] = useState(initialBriefing?.slug || normalizeSlug(initialBriefing?.title || 'novo-formulario'));
     const [description, setDescription] = useState(initialBriefing?.description || '');
     const [themeColor, setThemeColor] = useState(initialBriefing?.themeColor || '#DFA653');
     const [bgColor, setBgColor] = useState(initialBriefing?.bgColor || '#f0f0f5');
@@ -292,6 +294,14 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
     const currentQuestion = useMemo(() => (
         activeQIdx !== null ? questions[activeQIdx] : null
     ), [activeQIdx, questions]);
+
+    const handleTitleChange = useCallback((nextTitle: string) => {
+        setSlug((currentSlug) => {
+            const previousTitleSlug = normalizeSlug(title);
+            return currentSlug === previousTitleSlug ? normalizeSlug(nextTitle) : currentSlug;
+        });
+        setTitle(nextTitle);
+    }, [title]);
 
     // ── Handlers ──
     const handleAddQuestion = (type: QuestionType) => {
@@ -353,7 +363,7 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
         setIsSaving(true);
         try {
             await onSave(
-                { title, description, themeColor, bgColor, textColor: textColorMode, coverImage: coverImage || null, bgPosition, endScreen, status: 'active' } as any,
+                { title, slug: normalizeSlug(slug || title), description, themeColor, bgColor, textColor: textColorMode, coverImage: coverImage || null, bgPosition, endScreen, status: 'active' } as any,
                 questions
             );
         } finally { setIsSaving(false); }
@@ -364,15 +374,7 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
     }, []);
 
     // ── Preview mode ──
-    if (isPreview) {
-        return <MemoPreviewSimulation title={title} description={description} themeColor={themeColor} bgColor={bgColor} textMode={resolvedTextMode} coverImage={coverImage || undefined} bgPosition={bgPosition} questions={questions} endScreen={endScreen} onClose={handleClosePreview} />;
-    }
-
     // ── Responses mode ──
-    if (showResponses && initialBriefing) {
-        return <BriefingResponses briefing={initialBriefing} onBack={() => setShowResponses(false)} />;
-    }
-
     // ── Computed styles ──
     const centerBgStyle = useMemo<React.CSSProperties>(() => (
         coverImage
@@ -384,13 +386,27 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
     const pSub = isLight ? 'text-white/60' : 'text-gray-500';
 
     // ══════════════════════════════════════════════════════════════════════════════
+    if (isPreview) {
+        return <MemoPreviewSimulation title={title} description={description} themeColor={themeColor} bgColor={bgColor} textMode={resolvedTextMode} coverImage={coverImage || undefined} bgPosition={bgPosition} questions={questions} endScreen={endScreen} onClose={handleClosePreview} />;
+    }
+
+    if (showResponses && initialBriefing) {
+        return <BriefingResponses briefing={initialBriefing} onBack={() => setShowResponses(false)} />;
+    }
+
     return (
         <div className="h-full flex flex-col bg-gray-50 dark:bg-[#0a0a0a] absolute inset-0 z-40">
             {/* ── HEADER ── */}
             <div className="h-14 px-4 border-b border-gray-200 dark:border-white/5 flex items-center justify-between bg-white dark:bg-[#111] shrink-0">
                 <div className="flex items-center gap-3">
                     <button onClick={onCancel} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-white/5 text-gray-500 transition-colors"><ArrowLeft className="w-4 h-4" /></button>
-                    <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="text-base font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 p-0 placeholder-gray-400 w-64" placeholder="Nome do Formulário" />
+                    <div className="flex flex-col gap-1">
+                        <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)} className="text-base font-bold text-gray-900 dark:text-white bg-transparent border-none focus:ring-0 p-0 placeholder-gray-400 w-64" placeholder="Nome do Formulário" />
+                        <div className="flex items-center gap-1 text-[11px] text-gray-400">
+                            <span>/</span>
+                            <input type="text" value={slug} onChange={e => setSlug(normalizeSlug(e.target.value))} className="w-64 bg-transparent border-none focus:ring-0 p-0 text-[11px] font-medium text-gray-500 dark:text-gray-400 placeholder-gray-500" placeholder="slug-do-formulario" />
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     {initialBriefing && (
@@ -398,7 +414,7 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
                     )}
                     {initialBriefing ? (
                         <button onClick={() => {
-                            const url = `${window.location.origin}/form/${initialBriefing.id}`;
+                            const url = publicFormUrl({ id: initialBriefing.id, slug });
                             navigator.clipboard.writeText(url);
                             const btn = document.getElementById('copy-link-btn');
                             if (btn) { btn.textContent = 'Copiado!'; setTimeout(() => btn.textContent = 'Copiar Link', 1500); }
@@ -581,7 +597,7 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
                         {/* Welcome */}
                         {selectedView.type === 'welcome' && (
                             <div className="w-full max-w-2xl">
-                                <input type="text" value={title} onChange={e => setTitle(e.target.value)}
+                                <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)}
                                     className={`w-full text-4xl md:text-5xl font-bold bg-transparent border-none focus:ring-0 p-0 mb-4 outline-none placeholder-gray-300 ${pText}`}
                                     style={!isLight ? { color: themeColor } : {}} placeholder="Título do seu formulário" />
                                 <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Descrição opcional. Explique o objetivo deste formulário."
@@ -666,7 +682,7 @@ const BriefingBuilder: React.FC<BriefingBuilderProps> = ({ initialBriefing, onSa
                             <h3 className="font-bold text-gray-900 dark:text-white text-sm flex items-center gap-1.5"><Home className="w-4 h-4 text-gray-400" /> Tela de Boas-Vindas</h3>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Título</label>
-                                <input type="text" value={title} onChange={e => setTitle(e.target.value)} className="w-full text-xs bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-lg p-2.5 dark:text-white" />
+                                <input type="text" value={title} onChange={e => handleTitleChange(e.target.value)} className="w-full text-xs bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-lg p-2.5 dark:text-white" />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Descrição</label>

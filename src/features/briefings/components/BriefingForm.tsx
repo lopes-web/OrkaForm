@@ -4,6 +4,7 @@ import { Briefing, BriefingQuestion, EndScreen } from '@/shared/types';
 import LoadingScreen from '@/shared/components/LoadingScreen';
 import { ChevronDown, ChevronUp, Check, Clipboard } from 'lucide-react';
 import CountryCodePicker, { DEFAULT_COUNTRY, Country } from '@/components/CountryCodePicker';
+import { isUuid } from '../lib/formUrls';
 
 // ─── Utilities ─────────────────────────────────────────────────────────────────
 function isColorDark(hex: string): boolean {
@@ -53,6 +54,7 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
     const [answers, setAnswers] = useState<Record<string, any>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSuccess, setIsSuccess] = useState(false);
+    const [isDisqualified, setIsDisqualified] = useState(false);
     const [phoneCountry, setPhoneCountry] = useState<Country>(DEFAULT_COUNTRY);
 
     useEffect(() => {
@@ -60,13 +62,16 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
             if (!id) return;
             try {
                 setLoading(true);
-                const { data: briefingData, error: bError } = await supabase
-                    .from('orka_forms').select('*').eq('id', id).single();
+                const formQuery = supabase.from('orka_forms').select('*');
+                const { data: briefingData, error: bError } = await (isUuid(id)
+                    ? formQuery.eq('id', id).single()
+                    : formQuery.eq('slug', id).single());
 
                 if (bError) throw bError;
                 const theme = briefingData.theme || {};
                 setBriefing({
                     id: briefingData.id,
+                    slug: briefingData.slug,
                     teamId: 'orka',
                     userId: '',
                     title: briefingData.welcome_title || briefingData.name,
@@ -90,7 +95,7 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
                 });
 
                 const { data: qData, error: qError } = await supabase
-                    .from('orka_form_questions').select('*').eq('form_id', id).order('position', { ascending: true });
+                    .from('orka_form_questions').select('*').eq('form_id', briefingData.id).order('position', { ascending: true });
 
                 if (qError) throw qError;
                 if (qData) {
@@ -98,7 +103,7 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
                         id: q.id, briefingId: q.form_id, type: fromDbType(q.type),
                         questionText: q.title, description: q.description,
                         options: (q.options || []).map((option: any) => typeof option === 'string' ? option : option.label).filter(Boolean),
-                        isRequired: q.required, orderIndex: q.position,
+                        isRequired: q.required, orderIndex: q.position, settings: q.settings || {},
                     })));
                 }
             } catch (err) {
@@ -114,8 +119,19 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
         if (!briefing) return;
         setIsSubmitting(true);
         try {
-            const { error } = await supabase.from('orka_form_responses').insert({ form_id: briefing.id, answers, status: 'completed' } as any);
+            const disqualifiedQuestion = questions.find((question) => {
+                const disqualifyAnswers = question.settings?.disqualifyAnswers;
+                return Array.isArray(disqualifyAnswers) && disqualifyAnswers.includes(answers[question.id]);
+            });
+            const contact = questions.reduce<Record<string, unknown>>((acc, question) => {
+                const field = question.settings?.contactField;
+                if (typeof field === 'string' && answers[question.id]) acc[field] = answers[question.id];
+                return acc;
+            }, {});
+            const nextIsDisqualified = Boolean(disqualifiedQuestion);
+            const { error } = await supabase.from('orka_form_responses').insert({ form_id: briefing.id, answers, contact, status: nextIsDisqualified ? 'disqualified' : 'completed' } as any);
             if (error) throw error;
+            setIsDisqualified(nextIsDisqualified);
             setIsSuccess(true);
 
             // Auto-redirect if configured
@@ -131,7 +147,7 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
         } finally {
             setIsSubmitting(false);
         }
-    }, [answers, briefing]);
+    }, [answers, briefing, questions]);
 
     const handleNext = useCallback(() => {
         if (questions.length === 0 || currentStep >= questions.length - 1) {
@@ -160,6 +176,16 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [handleNext]);
 
+    const q = useMemo(() => (
+        currentStep >= 0 && currentStep < questions.length ? questions[currentStep] : null
+    ), [currentStep, questions]);
+
+    const bgStyle = useMemo<React.CSSProperties>(() => (
+        briefing?.coverImage
+            ? { backgroundImage: `url(${briefing.coverImage})`, backgroundSize: 'cover', backgroundPosition: briefing.bgPosition || 'center center' }
+            : { backgroundColor: briefing?.bgColor || '#f0f0f5' }
+    ), [briefing?.bgColor, briefing?.coverImage, briefing?.bgPosition]);
+
     if (loading) return <LoadingScreen />;
 
     if (!briefing) {
@@ -179,6 +205,11 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
     const hasCoverImage = !!briefing.coverImage;
     const textMode = getTextMode(briefing.textColor, bgColor, hasCoverImage);
     const endScreen: EndScreen = briefing.endScreen || DEFAULT_END_SCREEN;
+    const disqualificationSettings = questions.find((question) => Array.isArray(question.settings?.disqualifyAnswers))?.settings || {};
+    const successTitle = isDisqualified ? String(disqualificationSettings.disqualificationTitle || 'Obrigado pelas respostas!') : endScreen.title;
+    const successMessage = isDisqualified
+        ? String(disqualificationSettings.disqualificationMessage || 'Neste momento, sua empresa ainda não está no perfil ideal para este diagnóstico. Mesmo assim, suas respostas foram registradas com carinho.')
+        : endScreen.message;
     const isLight = textMode === 'light';
 
     // CSS classes based on text mode
@@ -190,12 +221,6 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
     const navHint = isLight ? 'text-white/50' : 'text-gray-400';
 
     // Background style
-    const bgStyle = useMemo<React.CSSProperties>(() => (
-        hasCoverImage
-            ? { backgroundImage: `url(${briefing.coverImage})`, backgroundSize: 'cover', backgroundPosition: briefing.bgPosition || 'center center' }
-            : { backgroundColor: bgColor }
-    ), [bgColor, briefing.coverImage, briefing.bgPosition, hasCoverImage]);
-
     // ── Success screen ──
     if (isSuccess) {
         return (
@@ -206,8 +231,8 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
                         <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto" style={{ backgroundColor: themeColor }}>
                             <Check className="w-12 h-12 text-white" />
                         </div>
-                        <h1 className={`text-4xl md:text-5xl font-bold ${textPrimary}`}>{endScreen.title}</h1>
-                        <p className={`text-xl ${textSecondary}`}>{endScreen.message}</p>
+                        <h1 className={`text-4xl md:text-5xl font-bold ${textPrimary}`}>{successTitle}</h1>
+                        <p className={`text-xl ${textSecondary}`}>{successMessage}</p>
                         {endScreen.buttonText && (
                             <a href={endScreen.buttonUrl || '#'}
                                 className="inline-block px-8 py-4 rounded-xl text-white font-bold text-lg transition-all hover:scale-105 mt-4 shadow-lg"
@@ -222,10 +247,6 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
     }
 
     // ── Main form ──
-    const q = useMemo(() => (
-        currentStep >= 0 && currentStep < questions.length ? questions[currentStep] : null
-    ), [currentStep, questions]);
-
     return (
         <div className="h-screen w-full flex flex-col font-sans relative overflow-hidden" style={bgStyle}>
             {hasCoverImage && <div className="absolute inset-0 bg-black/40 z-0" />}
