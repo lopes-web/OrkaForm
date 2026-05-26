@@ -227,6 +227,9 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                             {questions.map((q, idx) => {
                                 const answer = selectedResponse.answers[q.id];
                                 const hasAnswer = answer !== undefined && answer !== null && answer !== '';
+                                const answerText = typeof answer === 'string' || typeof answer === 'number' || typeof answer === 'boolean'
+                                    ? String(answer)
+                                    : '';
                                 const icon = QUESTION_ICONS[q.type] || <Type className="w-4 h-4" />;
 
                                 return (
@@ -256,12 +259,12 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                                                 <p className="text-sm text-gray-300 dark:text-gray-600 italic">Sem resposta</p>
                                             ) : Array.isArray(answer) ? (
                                                 <div className="flex flex-wrap gap-1.5">
-                                                    {answer.map((a: string, ai: number) => (
+                                                    {answer.map((a: unknown, ai: number) => (
                                                         <span key={ai}
                                                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                                                             style={{ backgroundColor: themeColor + '12', color: themeColor }}>
                                                             <CheckCircle2 className="w-3 h-3" />
-                                                            {a}
+                                                            {String(a)}
                                                         </span>
                                                     ))}
                                                 </div>
@@ -269,11 +272,11 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                                                 <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
                                                     style={{ backgroundColor: themeColor + '12', color: themeColor }}>
                                                     <CheckCircle2 className="w-3 h-3" />
-                                                    {answer}
+                                                    {answerText}
                                                 </span>
                                             ) : (
                                                 <p className="text-sm text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-white/5 rounded-xl px-4 py-3 leading-relaxed">
-                                                    {answer}
+                                                    {answerText}
                                                 </p>
                                             )}
                                         </div>

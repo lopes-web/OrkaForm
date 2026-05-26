@@ -82,7 +82,7 @@ const questionRows = (formId: string, questions: Omit<BriefingQuestion, 'id' | '
   }));
 
 const formPayload = (briefing: Partial<Briefing>) => {
-  const endScreen = briefing.endScreen || {};
+  const endScreen: Partial<NonNullable<Briefing['endScreen']>> = briefing.endScreen || {};
   return {
     name: briefing.title || 'Novo Formulário',
     slug: `${(briefing.title || 'novo-formulario')
@@ -127,7 +127,7 @@ const formUpdatePayload = (updates: Partial<Briefing>) => {
     updates.bgPosition !== undefined ||
     updates.endScreen !== undefined
   ) {
-    const endScreen = updates.endScreen || {};
+    const endScreen: Partial<NonNullable<Briefing['endScreen']>> = updates.endScreen || {};
     payload.success_title = endScreen.title || 'Tudo certo!';
     payload.success_description = endScreen.message || 'Suas respostas foram enviadas com sucesso.';
     payload.theme = {
@@ -284,4 +284,3 @@ export const useBriefingsCRUD = (currentTeamId?: string, currentUserId?: string)
     refetch: fetchBriefings,
   };
 };
-
