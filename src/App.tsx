@@ -146,7 +146,7 @@ function MissingConfig() {
   return (
     <main className="setup-screen">
       <section className="setup-card">
-        <img src="/logo/logo-darkmode.png" alt="OrkaForm" />
+        <img src="/logo/logo-orka.svg" alt="OrkaForm" />
         <h1>Configuração pendente</h1>
         <p>Preencha `VITE_SUPABASE_ANON_KEY` no `.env` para conectar este app ao Supabase do cliente.</p>
       </section>
@@ -193,7 +193,7 @@ function LoginPage({ session }: { session: Session | null }) {
   return (
     <main className="login-screen">
       <section className="login-panel">
-        <img className="login-logo" src="/logo/logo-darkmode.png" alt="OrkaForm" />
+        <img className="login-logo" src="/logo/logo-orka.svg" alt="OrkaForm" />
         <div>
           <span className="eyebrow">Administrador</span>
           <h1>Entre para criar e gerenciar formulários.</h1>
@@ -213,18 +213,6 @@ function LoginPage({ session }: { session: Session | null }) {
           </button>
         </form>
       </section>
-      <aside className="login-preview">
-        <div className="preview-shell">
-          <div className="preview-topbar">
-            <img src="/logo/simbolo-laranja.png" alt="" />
-            <span>Formulário publicado</span>
-          </div>
-          <h2>Qual é o maior gargalo da sua operação hoje?</h2>
-          <button>Captação de leads</button>
-          <button>Follow-up comercial</button>
-          <button>Proposta e fechamento</button>
-        </div>
-      </aside>
     </main>
   );
 }
@@ -439,7 +427,7 @@ function AdminApp({ session }: { session: Session }) {
     <main className="admin-shell">
       <aside className="sidebar">
         <div className="brand-row">
-          <img src="/logo/logo-darkmode.png" alt="OrkaForm" />
+          <img src="/logo/logo-orka.svg" alt="OrkaForm" />
         </div>
         <button className="new-form-button" onClick={createForm}>
           <Plus size={18} />
@@ -525,7 +513,7 @@ function AdminApp({ session }: { session: Session }) {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <section className="empty-state">
-      <img src="/logo/simbolo-laranja.png" alt="" />
+      <img src="/logo/logo-orka.svg" alt="" />
       <h1>Crie o primeiro formulário</h1>
       <p>Monte perguntas, publique o link e acompanhe as respostas em tempo real.</p>
       <button className="primary-button" onClick={onCreate}>
@@ -761,7 +749,7 @@ function PublicPreview({ form, questions }: { form: OrkaForm; questions: FormQue
       <div className="phone-preview" style={{ background: form.theme.backgroundColor }}>
         {form.theme.backgroundImage && <img className="phone-bg" src={form.theme.backgroundImage} alt="" />}
         <div className="phone-content">
-          <img src="/logo/logo-darkmode.png" alt="OrkaForm" />
+          <img src="/logo/logo-orka.svg" alt="OrkaForm" />
           <span>{form.welcomeDescription}</span>
           <h2>{firstQuestion?.title || form.welcomeTitle}</h2>
           {firstQuestion?.description && <p>{firstQuestion.description}</p>}
@@ -965,7 +953,7 @@ function PublicForm({ slug }: { slug: string }) {
     return (
       <main className="public-shell">
         <section className="public-card light-text">
-          <img src="/logo/logo-darkmode.png" alt="OrkaForm" />
+          <img src="/logo/logo-orka.svg" alt="OrkaForm" />
           <h1>Formulário indisponível</h1>
           <p>Este link não está publicado ou não existe mais.</p>
         </section>
@@ -982,7 +970,7 @@ function PublicForm({ slug }: { slug: string }) {
       }}
     >
       <section className={`public-card ${textClass}`}>
-        <img src="/logo/logo-darkmode.png" alt="OrkaForm" />
+        <img src="/logo/logo-orka.svg" alt="OrkaForm" />
         {done ? (
           <div className="success-state">
             <CheckCircle2 size={42} />

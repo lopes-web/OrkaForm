@@ -1,6 +1,11 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800;900&display=swap");
+
 :root {
+  --accent: #DFA653;
+  --accent-soft: rgba(223, 166, 83, 0.16);
+  --accent-border: rgba(223, 166, 83, 0.34);
   color-scheme: dark;
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: Figtree, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   background: #080808;
   color: #f5f5f5;
 }
@@ -120,12 +125,12 @@ label {
 }
 
 .danger-button {
-  border-color: rgba(233, 81, 56, 0.35);
+  border-color: var(--accent-border);
   color: #ff8a78;
 }
 
 .eyebrow {
-  color: #e95138;
+  color: var(--accent);
   font-size: 12px;
   font-weight: 900;
   letter-spacing: 0.16em;
@@ -155,9 +160,12 @@ label {
 
 .login-screen {
   display: grid;
-  grid-template-columns: minmax(360px, 0.85fr) 1fr;
+  place-items: center;
   min-height: 100vh;
-  background: #090909;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(223, 166, 83, 0.18), transparent 34%),
+    #090909;
+  padding: 24px;
 }
 
 .login-panel {
@@ -165,11 +173,18 @@ label {
   flex-direction: column;
   justify-content: center;
   gap: 32px;
-  padding: clamp(28px, 7vw, 96px);
+  width: min(480px, 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+  background: rgba(17, 17, 17, 0.84);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.38);
+  padding: clamp(28px, 6vw, 54px);
+  text-align: center;
 }
 
 .login-logo {
-  width: 180px;
+  width: 220px;
+  margin: 0 auto;
 }
 
 .login-panel h1,
@@ -181,10 +196,16 @@ label {
   letter-spacing: 0;
 }
 
+.login-panel h1 {
+  font-size: clamp(30px, 5vw, 44px);
+  line-height: 1;
+}
+
 .login-form {
   display: grid;
   gap: 18px;
   max-width: 460px;
+  text-align: left;
 }
 
 .form-error,
@@ -192,53 +213,6 @@ label {
   margin: 0;
   color: #ff8a78;
   font-weight: 700;
-}
-
-.login-preview {
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  background: radial-gradient(circle at center, rgba(233, 81, 56, 0.18), transparent 36%), #111111;
-  padding: 48px;
-}
-
-.preview-shell {
-  display: grid;
-  gap: 18px;
-  width: min(520px, 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
-  background: rgba(0, 0, 0, 0.44);
-  padding: 32px;
-  box-shadow: 0 30px 90px rgba(0, 0, 0, 0.35);
-}
-
-.preview-shell h2 {
-  margin: 12px 0 8px;
-  font-size: clamp(28px, 4vw, 46px);
-  line-height: 1;
-}
-
-.preview-shell button {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #ffffff;
-  padding: 18px;
-  text-align: left;
-  font-weight: 800;
-}
-
-.preview-topbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #bdbdbd;
-  font-weight: 800;
-}
-
-.preview-topbar img {
-  width: 28px;
 }
 
 .admin-shell {
@@ -265,7 +239,7 @@ label {
 
 .new-form-button {
   margin: 26px 0 18px;
-  background: #e95138;
+  background: var(--accent);
   color: #ffffff;
 }
 
@@ -300,8 +274,8 @@ label {
 }
 
 .form-list-item.active {
-  border-color: rgba(233, 81, 56, 0.35);
-  background: rgba(233, 81, 56, 0.1);
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
 }
 
 .sidebar-footer {
@@ -346,9 +320,9 @@ label {
 
 .notice {
   width: 100%;
-  border: 1px solid rgba(233, 81, 56, 0.28);
+  border: 1px solid rgba(223, 166, 83, 0.28);
   border-radius: 14px;
-  background: rgba(233, 81, 56, 0.12);
+  background: rgba(223, 166, 83, 0.12);
   color: #ffd1ca;
   margin-bottom: 16px;
   padding: 12px 14px;
@@ -462,7 +436,7 @@ label {
 }
 
 .question-card-header span {
-  color: #e95138;
+  color: var(--accent);
   font-weight: 900;
 }
 
@@ -500,7 +474,7 @@ label {
   height: 32px;
   place-items: center;
   border-radius: 999px;
-  background: rgba(233, 81, 56, 0.18);
+  background: rgba(223, 166, 83, 0.18);
   color: #ff9b8c;
   font-weight: 900;
 }
@@ -705,8 +679,8 @@ textarea.public-input {
 }
 
 .choice-list button.selected {
-  border-color: #e95138;
-  background: rgba(233, 81, 56, 0.22);
+  border-color: var(--accent);
+  background: rgba(223, 166, 83, 0.22);
 }
 
 .success-state {
@@ -731,13 +705,8 @@ textarea.public-input {
 }
 
 @media (max-width: 860px) {
-  .login-screen,
   .admin-shell {
     grid-template-columns: 1fr;
-  }
-
-  .login-preview {
-    display: none;
   }
 
   .sidebar {
@@ -783,4 +752,3 @@ textarea.public-input {
     grid-column: 2;
   }
 }
-

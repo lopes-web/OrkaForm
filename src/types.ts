@@ -103,7 +103,7 @@ interface FormResponseRow {
 export const defaultTheme: FormTheme = {
   backgroundColor: '#0a0a0a',
   backgroundImage: '',
-  buttonColor: '#e95138',
+  buttonColor: '#DFA653',
   textMode: 'auto',
 };
 
@@ -178,4 +178,3 @@ export function questionToRow(question: FormQuestion, position: number) {
     settings: question.settings,
   };
 }
-
