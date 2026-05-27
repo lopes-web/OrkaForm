@@ -5,6 +5,7 @@ import LoadingScreen from '@/shared/components/LoadingScreen';
 import { ChevronDown, ChevronUp, Check, Clipboard } from 'lucide-react';
 import CountryCodePicker, { DEFAULT_COUNTRY, Country } from '@/components/CountryCodePicker';
 import { isUuid } from '../lib/formUrls';
+import { submitFormResponse } from '../lib/submitFormResponse';
 
 // ─── Utilities ─────────────────────────────────────────────────────────────────
 function isColorDark(hex: string): boolean {
@@ -129,8 +130,12 @@ const BriefingForm: React.FC<BriefingFormProps> = ({ formId }) => {
                 return acc;
             }, {});
             const nextIsDisqualified = Boolean(disqualifiedQuestion);
-            const { error } = await supabase.from('orka_form_responses').insert({ form_id: briefing.id, answers, contact, status: nextIsDisqualified ? 'disqualified' : 'completed' } as any);
-            if (error) throw error;
+            await submitFormResponse({
+                form_id: briefing.id,
+                answers,
+                contact,
+                status: nextIsDisqualified ? 'disqualified' : 'completed',
+            });
             setIsDisqualified(nextIsDisqualified);
             setIsSuccess(true);
 
