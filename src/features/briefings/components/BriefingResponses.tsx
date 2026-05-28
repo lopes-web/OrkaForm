@@ -5,7 +5,7 @@ import {
     ArrowLeft, Inbox, Clock, CheckCircle2, ChevronRight,
     Type, AlignLeft, CheckSquare, List, FileText, Calendar,
     Hash, Mail, Phone, CalendarDays, Download, Search, FileSpreadsheet,
-    Table2, Copy, ChevronDown
+    Table2, Copy, ChevronDown, Check
 } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -42,11 +42,30 @@ function timeAgo(d: string): string {
 type ResponseStatusFilter = 'all' | 'completed' | 'disqualified' | 'pending';
 type DateRangeFilter = 'all' | 'today' | '7d' | '30d';
 
+interface FilterOption<T extends string> {
+    value: T;
+    label: string;
+}
+
 interface ExportRow {
     response: BriefingResponse;
     values: string[];
     searchableText: string;
 }
+
+const STATUS_FILTER_OPTIONS: FilterOption<ResponseStatusFilter>[] = [
+    { value: 'all', label: 'Todos status' },
+    { value: 'completed', label: 'Concluidas' },
+    { value: 'disqualified', label: 'Nao qualificadas' },
+    { value: 'pending', label: 'Pendentes' },
+];
+
+const DATE_RANGE_OPTIONS: FilterOption<DateRangeFilter>[] = [
+    { value: 'all', label: 'Todo periodo' },
+    { value: 'today', label: 'Hoje' },
+    { value: '7d', label: '7 dias' },
+    { value: '30d', label: '30 dias' },
+];
 
 const STATUS_LABELS: Record<string, string> = {
     completed: 'Concluida',
@@ -112,6 +131,68 @@ function isWithinRange(date: string, range: DateRangeFilter): boolean {
     return submitted >= Date.now() - days * 24 * 60 * 60 * 1000;
 }
 
+interface FilterDropdownProps<T extends string> {
+    active: boolean;
+    options: FilterOption<T>[];
+    value: T;
+    onChange: (value: T) => void;
+    onToggle: () => void;
+    onClose: () => void;
+}
+
+function FilterDropdown<T extends string>({
+    active,
+    options,
+    value,
+    onChange,
+    onToggle,
+    onClose,
+}: FilterDropdownProps<T>) {
+    const selected = options.find((option) => option.value === value) || options[0];
+
+    return (
+        <div className="relative min-w-0">
+            <button
+                type="button"
+                onClick={onToggle}
+                className={`h-10 w-full min-w-0 px-3 rounded-xl border text-left flex items-center justify-between gap-2 transition-all
+                    ${active
+                        ? 'bg-[#101010] border-[#DFA653]/70 shadow-[0_0_0_3px_rgba(223,166,83,0.12)]'
+                        : 'bg-black/30 border-white/10 hover:border-[#DFA653]/50 hover:bg-black/40'}`}
+            >
+                <span className="text-xs font-semibold text-white truncate">{selected.label}</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform ${active ? 'rotate-180 text-[#DFA653]' : ''}`} />
+            </button>
+
+            {active && (
+                <>
+                    <button type="button" className="fixed inset-0 z-[55] cursor-default" onClick={onClose} aria-label="Fechar filtro" />
+                    <div className="absolute left-0 right-0 top-12 z-[65] overflow-hidden rounded-xl border border-white/10 bg-[#171717] shadow-2xl shadow-black/40 p-1">
+                        {options.map((option) => {
+                            const isSelected = option.value === value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    onClick={() => {
+                                        onChange(option.value);
+                                        onClose();
+                                    }}
+                                    className={`w-full min-h-9 px-2.5 py-2 rounded-lg flex items-center justify-between gap-2 text-left transition-colors
+                                        ${isSelected ? 'bg-[#DFA653]/15 text-[#DFA653]' : 'text-gray-300 hover:bg-white/5 hover:text-white'}`}
+                                >
+                                    <span className="text-xs font-medium leading-tight">{option.label}</span>
+                                    {isSelected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}
+
 interface BriefingResponsesProps {
     briefing: Briefing;
     onBack: () => void;
@@ -127,6 +208,7 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
     const [dateRange, setDateRange] = useState<DateRangeFilter>('all');
     const [isExportOpen, setIsExportOpen] = useState(false);
     const [exportFeedback, setExportFeedback] = useState('');
+    const [openFilter, setOpenFilter] = useState<'status' | 'date' | null>(null);
 
     const fromDbType = (type?: string): BriefingQuestion['type'] => {
         if (type === 'single') return 'single_choice';
@@ -372,27 +454,23 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2">
-                            <select
+                        <div className="grid grid-cols-2 gap-3">
+                            <FilterDropdown
+                                active={openFilter === 'status'}
+                                options={STATUS_FILTER_OPTIONS}
                                 value={statusFilter}
-                                onChange={(event) => setStatusFilter(event.target.value as ResponseStatusFilter)}
-                                className="h-9 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-[#DFA653]"
-                            >
-                                <option value="all">Todos status</option>
-                                <option value="completed">Concluidas</option>
-                                <option value="disqualified">Nao qualificadas</option>
-                                <option value="pending">Pendentes</option>
-                            </select>
-                            <select
+                                onChange={setStatusFilter}
+                                onToggle={() => setOpenFilter((current) => current === 'status' ? null : 'status')}
+                                onClose={() => setOpenFilter(null)}
+                            />
+                            <FilterDropdown
+                                active={openFilter === 'date'}
+                                options={DATE_RANGE_OPTIONS}
                                 value={dateRange}
-                                onChange={(event) => setDateRange(event.target.value as DateRangeFilter)}
-                                className="h-9 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-[#DFA653]"
-                            >
-                                <option value="all">Todo periodo</option>
-                                <option value="today">Hoje</option>
-                                <option value="7d">7 dias</option>
-                                <option value="30d">30 dias</option>
-                            </select>
+                                onChange={setDateRange}
+                                onToggle={() => setOpenFilter((current) => current === 'date' ? null : 'date')}
+                                onClose={() => setOpenFilter(null)}
+                            />
                         </div>
                     </div>
 
