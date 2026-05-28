@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/shared/lib/supabase';
 import { Briefing, BriefingQuestion, BriefingResponse } from '@/shared/types';
 import {
     ArrowLeft, Inbox, Clock, CheckCircle2, ChevronRight,
     Type, AlignLeft, CheckSquare, List, FileText, Calendar,
-    Hash, User, Mail, Phone, CalendarDays
+    Hash, Mail, Phone, CalendarDays, Download, Search, FileSpreadsheet,
+    Table2, Copy, ChevronDown
 } from 'lucide-react';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
@@ -38,6 +39,79 @@ function timeAgo(d: string): string {
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────────
+type ResponseStatusFilter = 'all' | 'completed' | 'disqualified' | 'pending';
+type DateRangeFilter = 'all' | 'today' | '7d' | '30d';
+
+interface ExportRow {
+    response: BriefingResponse;
+    values: string[];
+    searchableText: string;
+}
+
+const STATUS_LABELS: Record<string, string> = {
+    completed: 'Concluida',
+    disqualified: 'Nao qualificada',
+    pending: 'Pendente',
+    reviewed: 'Revisada',
+    new: 'Nova',
+};
+
+function valueToText(value: unknown): string {
+    if (value === undefined || value === null) return '';
+    if (Array.isArray(value)) return value.map(valueToText).filter(Boolean).join(', ');
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+}
+
+function sanitizeFilename(value: string): string {
+    return value
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)+/g, '')
+        .slice(0, 80) || 'formulario';
+}
+
+function escapeCsvCell(value: string): string {
+    const escaped = value.replace(/"/g, '""');
+    return /[";\n\r]/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function escapeHtmlCell(value: string): string {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+function downloadBlob(content: string, filename: string, type: string): void {
+    const blob = new Blob([content], { type });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+}
+
+function isWithinRange(date: string, range: DateRangeFilter): boolean {
+    if (range === 'all') return true;
+    const submitted = new Date(date).getTime();
+    const now = new Date();
+
+    if (range === 'today') {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+        return submitted >= start;
+    }
+
+    const days = range === '7d' ? 7 : 30;
+    return submitted >= Date.now() - days * 24 * 60 * 60 * 1000;
+}
+
 interface BriefingResponsesProps {
     briefing: Briefing;
     onBack: () => void;
@@ -48,6 +122,11 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
     const [questions, setQuestions] = useState<BriefingQuestion[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [statusFilter, setStatusFilter] = useState<ResponseStatusFilter>('all');
+    const [dateRange, setDateRange] = useState<DateRangeFilter>('all');
+    const [isExportOpen, setIsExportOpen] = useState(false);
+    const [exportFeedback, setExportFeedback] = useState('');
 
     const fromDbType = (type?: string): BriefingQuestion['type'] => {
         if (type === 'single') return 'single_choice';
@@ -77,6 +156,7 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                 id: r.id,
                 briefingId: r.form_id,
                 answers: r.answers || {},
+                contact: r.contact || {},
                 status: r.status,
                 submittedAt: r.created_at,
             }));
@@ -102,9 +182,105 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
         fetchData();
     }, [briefing.id]);
 
-    const selectedResponse = responses.find(r => r.id === selectedId);
+    const exportHeaders = useMemo(() => [
+        'ID da resposta',
+        'Enviado em',
+        'Status',
+        'Nome',
+        'WhatsApp',
+        'E-mail',
+        'Empresa',
+        ...questions.map((question, index) => `${index + 1}. ${question.questionText}`),
+    ], [questions]);
     const themeColor = briefing.themeColor || '#DFA653';
     const answeredCount = (r: BriefingResponse) => Object.keys(r.answers || {}).length;
+
+    const exportRows = useMemo<ExportRow[]>(() => responses.map((response) => {
+        const contact = response.contact || {};
+        const values = [
+            response.id,
+            `${formatDate(response.submittedAt)} ${formatTime(response.submittedAt)}`,
+            STATUS_LABELS[String(response.status)] || String(response.status),
+            valueToText(contact.name),
+            valueToText(contact.whatsapp),
+            valueToText(contact.email),
+            valueToText(contact.company),
+            ...questions.map((question) => {
+                const contactField = question.settings?.contactField;
+                if (typeof contactField === 'string' && contact[contactField]) return valueToText(contact[contactField]);
+                return valueToText(response.answers?.[question.id]);
+            }),
+        ];
+
+        return {
+            response,
+            values,
+            searchableText: values.join(' ').toLowerCase(),
+        };
+    }), [questions, responses]);
+
+    const filteredRows = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase();
+        return exportRows.filter((row) => {
+            const status = String(row.response.status);
+            const matchesStatus = statusFilter === 'all'
+                || (statusFilter === 'pending' && status !== 'completed' && status !== 'disqualified')
+                || status === statusFilter;
+            return matchesStatus && isWithinRange(row.response.submittedAt, dateRange) && (!term || row.searchableText.includes(term));
+        });
+    }, [dateRange, exportRows, searchTerm, statusFilter]);
+
+    const filteredResponses = useMemo(() => filteredRows.map((row) => row.response), [filteredRows]);
+    const selectedResponse = filteredResponses.find(r => r.id === selectedId);
+    const hasExportRows = filteredRows.length > 0;
+    const baseFilename = `respostas-${sanitizeFilename(briefing.slug || briefing.title)}-${new Date().toISOString().slice(0, 10)}`;
+
+    useEffect(() => {
+        if (filteredResponses.length === 0) {
+            if (selectedId !== null) setSelectedId(null);
+            return;
+        }
+        if (!selectedId || !filteredResponses.some((response) => response.id === selectedId)) {
+            setSelectedId(filteredResponses[0].id);
+        }
+    }, [filteredResponses, selectedId]);
+
+    const buildDelimited = useCallback((delimiter: string) => [
+        exportHeaders.map(escapeCsvCell).join(delimiter),
+        ...filteredRows.map((row) => row.values.map(escapeCsvCell).join(delimiter)),
+    ].join('\r\n'), [exportHeaders, filteredRows]);
+
+    const handleExportCsv = useCallback(() => {
+        if (!hasExportRows) return;
+        downloadBlob(`\uFEFF${buildDelimited(';')}`, `${baseFilename}.csv`, 'text/csv;charset=utf-8');
+        setExportFeedback('CSV gerado');
+        setIsExportOpen(false);
+    }, [baseFilename, buildDelimited, hasExportRows]);
+
+    const handleExportXls = useCallback(() => {
+        if (!hasExportRows) return;
+        const rows = [exportHeaders, ...filteredRows.map((row) => row.values)];
+        const table = rows
+            .map((row) => `<tr>${row.map((cell) => `<td>${escapeHtmlCell(cell)}</td>`).join('')}</tr>`)
+            .join('');
+        const html = `<html><head><meta charset="utf-8" /></head><body><table>${table}</table></body></html>`;
+        downloadBlob(html, `${baseFilename}.xls`, 'application/vnd.ms-excel;charset=utf-8');
+        setExportFeedback('Excel gerado');
+        setIsExportOpen(false);
+    }, [baseFilename, exportHeaders, filteredRows, hasExportRows]);
+
+    const handleCopyTable = useCallback(async () => {
+        if (!hasExportRows) return;
+        await navigator.clipboard.writeText(buildDelimited('\t'));
+        setExportFeedback('Tabela copiada');
+        setIsExportOpen(false);
+    }, [buildDelimited, hasExportRows]);
+
+    useEffect(() => {
+        if (!exportFeedback) return;
+        const timer = window.setTimeout(() => setExportFeedback(''), 1800);
+        return () => window.clearTimeout(timer);
+    }, [exportFeedback]);
 
     // ── Render ──
     return (
@@ -122,10 +298,48 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {exportFeedback && (
+                        <span className="hidden sm:inline text-xs font-semibold text-emerald-500">{exportFeedback}</span>
+                    )}
                     <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-100 dark:bg-white/5 rounded-lg">
                         <FileText className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{responses.length}</span>
-                        <span className="text-xs text-gray-400">respostas</span>
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-300">{filteredRows.length}</span>
+                        <span className="text-xs text-gray-400">de {responses.length}</span>
+                    </div>
+                    <div className="relative">
+                        <button
+                            type="button"
+                            onClick={() => setIsExportOpen((open) => !open)}
+                            disabled={!hasExportRows || loading}
+                            className="h-9 px-3 rounded-lg bg-white dark:bg-white text-gray-900 border border-gray-200 dark:border-transparent text-xs font-bold flex items-center gap-2 hover:bg-gray-50 dark:hover:bg-gray-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <Download className="w-4 h-4" />
+                            Exportar
+                            <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                        </button>
+                        {isExportOpen && (
+                            <>
+                                <button type="button" className="fixed inset-0 z-[80] cursor-default" onClick={() => setIsExportOpen(false)} aria-label="Fechar exportacao" />
+                                <div className="absolute right-0 top-11 z-[90] w-64 rounded-xl border border-white/10 bg-[#171717] shadow-2xl p-2">
+                                    <div className="px-3 py-2 border-b border-white/5">
+                                        <p className="text-xs font-bold text-white">Exportar {filteredRows.length} respostas</p>
+                                        <p className="text-[11px] text-gray-500">Respeita busca, status e periodo.</p>
+                                    </div>
+                                    <button type="button" onClick={handleExportCsv} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-200 hover:bg-white/5 rounded-lg transition-colors">
+                                        <FileSpreadsheet className="w-4 h-4 text-[#DFA653]" />
+                                        CSV para Excel
+                                    </button>
+                                    <button type="button" onClick={handleExportXls} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-200 hover:bg-white/5 rounded-lg transition-colors">
+                                        <Table2 className="w-4 h-4 text-[#DFA653]" />
+                                        Excel .xls
+                                    </button>
+                                    <button type="button" onClick={handleCopyTable} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-gray-200 hover:bg-white/5 rounded-lg transition-colors">
+                                        <Copy className="w-4 h-4 text-[#DFA653]" />
+                                        Copiar tabela
+                                    </button>
+                                </div>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>
@@ -135,10 +349,51 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
 
                 {/* ═══ Left: Responses List ═══ */}
                 <div className="w-[330px] bg-white dark:bg-[#111] border-r border-gray-200 dark:border-white/5 flex flex-col shrink-0">
-                    <div className="p-3 border-b border-gray-100 dark:border-white/5">
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            {loading ? 'Carregando...' : `${responses.length} respostas`}
-                        </p>
+                    <div className="p-3 border-b border-gray-100 dark:border-white/5 space-y-3">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                {loading ? 'Carregando...' : `${filteredRows.length} respostas`}
+                            </p>
+                            {!loading && responses.length > 0 && filteredRows.length !== responses.length && (
+                                <button type="button" onClick={() => { setSearchTerm(''); setStatusFilter('all'); setDateRange('all'); }} className="text-[11px] font-semibold text-[#DFA653] hover:text-white transition-colors">
+                                    Limpar
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                            <input
+                                type="text"
+                                value={searchTerm}
+                                onChange={(event) => setSearchTerm(event.target.value)}
+                                placeholder="Buscar por nome, email, resposta..."
+                                className="w-full h-9 pl-8 pr-3 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-xs text-gray-900 dark:text-white placeholder-gray-500 outline-none focus:border-[#DFA653] transition-colors"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2">
+                            <select
+                                value={statusFilter}
+                                onChange={(event) => setStatusFilter(event.target.value as ResponseStatusFilter)}
+                                className="h-9 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-[#DFA653]"
+                            >
+                                <option value="all">Todos status</option>
+                                <option value="completed">Concluidas</option>
+                                <option value="disqualified">Nao qualificadas</option>
+                                <option value="pending">Pendentes</option>
+                            </select>
+                            <select
+                                value={dateRange}
+                                onChange={(event) => setDateRange(event.target.value as DateRangeFilter)}
+                                className="h-9 rounded-lg bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 text-xs text-gray-700 dark:text-gray-200 outline-none focus:border-[#DFA653]"
+                            >
+                                <option value="all">Todo periodo</option>
+                                <option value="today">Hoje</option>
+                                <option value="7d">7 dias</option>
+                                <option value="30d">30 dias</option>
+                            </select>
+                        </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto">
@@ -157,9 +412,19 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                                     <p className="text-xs text-gray-400 mt-1">Compartilhe o link do formulário para receber respostas.</p>
                                 </div>
                             </div>
+                        ) : filteredResponses.length === 0 ? (
+                            <div className="p-8 flex flex-col items-center justify-center gap-3 text-center">
+                                <div className="w-14 h-14 bg-gray-50 dark:bg-white/5 rounded-2xl flex items-center justify-center">
+                                    <Search className="w-7 h-7 text-gray-300 dark:text-gray-600" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">Nada nesse filtro</p>
+                                    <p className="text-xs text-gray-400 mt-1">Ajuste a busca, o status ou o periodo.</p>
+                                </div>
+                            </div>
                         ) : (
                             <div className="p-2 space-y-0.5">
-                                {responses.map((r, idx) => {
+                                {filteredResponses.map((r, idx) => {
                                     const isSel = r.id === selectedId;
                                     const answered = answeredCount(r);
                                     return (
@@ -174,7 +439,7 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                                                         ${isSel ? 'bg-white/20 dark:bg-black/20' : 'bg-gray-100 dark:bg-white/10'}`}>
                                                         <Hash className="w-3 h-3" />
                                                     </div>
-                                                    <span className="text-xs font-bold">Resposta {responses.length - idx}</span>
+                                                    <span className="text-xs font-bold">Resposta {filteredResponses.length - idx}</span>
                                                 </div>
                                                 <ChevronRight className={`w-3.5 h-3.5 transition-transform ${isSel ? 'rotate-0' : 'opacity-0 group-hover:opacity-50'}`} />
                                             </div>
@@ -211,7 +476,7 @@ const BriefingResponses: React.FC<BriefingResponsesProps> = ({ briefing, onBack 
                             <div className="flex items-center justify-between mb-6">
                                 <div>
                                     <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                                        Resposta #{responses.length - responses.findIndex(r => r.id === selectedId)}
+                                        Resposta #{filteredResponses.length - filteredResponses.findIndex(r => r.id === selectedId)}
                                     </h2>
                                     <p className="text-xs text-gray-400 flex items-center gap-1.5 mt-1">
                                         <Calendar className="w-3.5 h-3.5" />

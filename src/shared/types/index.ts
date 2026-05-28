@@ -51,6 +51,7 @@ export interface BriefingResponse {
   leadId?: string;
   clientId?: string;
   answers: Record<string, unknown>;
+  contact?: Record<string, unknown>;
   status: ResponseStatus;
   submittedAt: string;
 }
